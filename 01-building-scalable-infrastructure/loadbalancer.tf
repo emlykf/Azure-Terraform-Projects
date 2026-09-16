@@ -1,0 +1,47 @@
+resource "azurerm_public_ip" "publicIP" {
+  name                = "pip-lb-${var.resource_naming}"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  allocation_method   = "Static"
+  sku                 = "Standard"    # Standard SKU requires allocation_method = "Static"
+}
+
+resource "azurerm_lb" "loadbalancer" {
+  name                = "lb-${var.resource_naming}"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  sku                 = "Standard"
+
+  frontend_ip_configuration {
+    name                 = "PublicIPAddress"
+    public_ip_address_id = azurerm_public_ip.publicIP.id
+  }
+}
+
+resource "azurerm_lb_backend_address_pool" "lb_backend_pool" {
+  loadbalancer_id = azurerm_lb.loadbalancer.id    # The backend pool is associated with the load balancer, so we reference the load balancer's ID here
+  name            = "lb-backend-pool"
+}
+
+resource "azurerm_lb_probe" "lb_probe" {
+  loadbalancer_id = azurerm_lb.loadbalancer.id
+  name            = "health-probe"    # Referencing the load balancer's ID here as well, since the probe is also associated with the load balancer
+  protocol        = "Http"            # It's a required argument (Tcp, Http, or Https). The protocol is used to determine how the health probe checks the health of the backend instances
+  port            = 80
+  request_path    = "/health"         # Required when using Http/Https protocol
+}
+
+resource "azurerm_lb_rule" "lb_rule" {
+  # Since azurerm_lb_rule is a standalone resource (not nested inside azurerm_lb), you'd use for_each rather than a dynamic block to generate multiple rule resources
+  # Btw, dynamic block => dynamic "rule"
+  for_each = local.lb_rules
+
+  loadbalancer_id                = azurerm_lb.loadbalancer.id
+  name                           = each.key   # the map's key itself ("http")
+  protocol                       = each.value.protocol
+  frontend_port                  = each.value.frontend_port
+  backend_port                   = each.value.backend_port
+  frontend_ip_configuration_name = "PublicIPAddress"
+  backend_address_pool_ids       = [azurerm_lb_backend_address_pool.lb_backend_pool.id]
+  probe_id                       = azurerm_lb_probe.lb_probe.id
+}

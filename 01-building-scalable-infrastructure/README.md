@@ -121,7 +121,7 @@ While implementing the region validation rule, I ran into two mistakes that caus
   }
   ```
 
-  The fix was switching from inline `subnet { }` blocks to standalone `azurerm_subnet` resources, so each subnet can be referenced directly by name instead of by position:
+  To fix this, I was switching from inline `subnet { }` blocks to standalone `azurerm_subnet` resources, so each subnet can be referenced directly by name instead of by position:
 
   ```hcl
   resource "azurerm_subnet" "app" {
@@ -155,4 +155,69 @@ While implementing the region validation rule, I ran into two mistakes that caus
 
   ```hcl
   public_key = file("~/.ssh/id_rsa.pub")
+  ```
+
+- **Indexing into a nested block output:**
+
+  I tried to grab a specific field from `source_image_reference` using `[0]`, but it's a single nested block, not a list — so it can't be indexed.
+
+  ```hcl
+  output "vmss" {
+    value = [
+      azurerm_linux_virtual_machine_scale_set.vmss.name,
+      azurerm_linux_virtual_machine_scale_set.vmss.source_image_reference[0]
+    ]
+  }
+  ```
+
+  The fix was referencing it directly as an object instead of indexing into it:
+
+  ```hcl
+  output "vmss" {
+    value = {
+      name  = azurerm_linux_virtual_machine_scale_set.vmss.name
+      image = azurerm_linux_virtual_machine_scale_set.vmss.source_image_reference
+    }
+  }
+  ```
+
+- **Indexing into a set attribute:**
+
+  Now for this one, I tried to grab the VNet's address space with `[0]`, but `address_space` is a set, not a list — sets have no order, so indexing isn't allowed.
+
+  ```hcl
+  resource "azurerm_virtual_network" "vnet" {
+    name                = "vnet-${var.resource_naming}"
+    address_space       = ["10.0.0.0/16"]
+  }
+  ```
+  ```hcl
+  output "vnet_name" {
+    value = {
+      name          = azurerm_virtual_network.vnet.name
+      address_space = azurerm_virtual_network.vnet.address_space[0]
+    }
+  }
+  ```
+
+  The fix was converting the set to a list first with `tolist()`, then indexing it:
+
+  ```hcl
+  output "vnet_name" {
+    value = {
+      name          = azurerm_virtual_network.vnet.name
+      address_space = tolist(azurerm_virtual_network.vnet.address_space)[0]
+    }
+  }
+  ```
+
+  > **Note:** `address_prefixes` (subnet) and `address_space` (VNet) look like they should behave the same way, but they don't — `address_prefixes` is a `list(string)` (indexable), while `address_space` is a `set(string)` (not indexable).
+
+  ```hcl
+  output "subnets" {
+    value = {
+      Application_subnet = azurerm_subnet.app.address_prefixes[0]
+      Management_subnet  = azurerm_subnet.mgmt.address_prefixes[0]
+    }
+  }
   ```
