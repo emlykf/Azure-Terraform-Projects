@@ -1,12 +1,17 @@
 # Introduction
 
-## Content List
+In this project, I will demonstrate a scalable Azure cloud infrastructure using Terraform that provides redundancy and improved performance for applications that are typically distributed across multiple instances. This setup allows customer traffic to be automatically redirected to other available instances when performing maintenance or updates.
 
 ## Features
 
-## Architecture Diagram
+- VMSS: running Ubuntu 22.04, auto-scales based on CPU load
+- VM size: picked automatically depending on environment (dev/test/prod)
+- Load Balancer: spreads traffic across instances, only sends it to healthy ones
+- NSG: only lets the load balancer talk to the VMs — everything else is blocked
+- NAT Gateway: gives the VMs internet access without exposing them publicly
+- Each VM runs a fun demo app (Terramino) so you can actually see if the load balancer is working
 
-## Demo / Lab
+## Architecture Diagram
 
 ## Challenges & How I Resolved Them
 
@@ -16,7 +21,7 @@ While implementing the region validation rule, I ran into two mistakes that caus
 
 - **Selecting a region by list index instead of an explicit variable:**
 
-  I was picking a region by its position in a list instead of just choosing it directly. It technically worked, but it meant the deployed region was silently tied to whatever order the list happened to be in — if I ever reordered the list, my deployment region would quietly change without any warning.
+  I initially picked the deployment region based on its position in a list instead of by name. It worked, but if I ever reordered the list, my deployment region would quietly change without any warning.
 
   ```hcl
   resource "azurerm_resource_group" "rg" {
@@ -30,7 +35,7 @@ While implementing the region validation rule, I ran into two mistakes that caus
   }
   ```
 
-  While fixing this I also caught two smaller mistakes hiding in the same code: `list()` isn't actually a valid type on its own — Terraform needs to know what's *inside* the list, so it has to be `list(string)`. And `"WestEU"` isn't a real Azure region name. Azure expects `"westeurope"` (lowercase, no spaces). 
+  While fixing this, I also found two smaller mistakes in the same code. I realized that `list()` isn’t a valid type on its own. Terraform needs to know what’s inside the list, so it should be `list(string)`. Azure expects `"westeurope"` (lowercase, no spaces). 
 
   So the fix was adding a dedicated `location` variable that names the region directly instead of indexing into the list, plus correcting the type and the region name:
 
@@ -53,8 +58,6 @@ While implementing the region validation rule, I ran into two mistakes that caus
 
 - **A validation rule that checked the list against itself:**
 
-  This validated `allowed_regions` against a hardcoded copy of itself, so it could never actually fail — it wasn't validating a *selected* region at all, just confirming the list contained its own values.
-
   ```hcl
   variable "allowed_regions" {
     type = list()
@@ -68,9 +71,9 @@ While implementing the region validation rule, I ran into two mistakes that caus
   }
   ```
 
-  Two problems here: the `condition` checked `allowed_regions` against a copy of itself, so it could never actually fail — it wasn't validating a *selected* region at all. And the `error_message` tried to drop `var.allowed_regions` (a `list(string)`) straight into a string, which Terraform can't do — string interpolation only accepts a single string value.
+  There were two problems here. First, the `condition` checked `allowed_regions` against a copy of itself, so it could never actually fail. It wasn’t validating a selected region at all. Second, the `error_message` tried to drop `var.allowed_regions` (a `list(string)`) directly into a string, which Terraform can’t handle because string interpolation only accepts a single string value.
 
-  The fix was separating "the list of allowed regions" from "the region actually chosen" with a new `location` variable, and wrapping the list in `join()` to turn it into a proper string for the error message:
+  The fix was to separate "the list of allowed regions" from "the selected region" by introducing a new `location` variable. I also used `join()` to turn the list into a proper string for the error message:
 
   ```hcl
   variable "allowed_regions" {
@@ -93,7 +96,7 @@ While implementing the region validation rule, I ran into two mistakes that caus
 
 - **Indexing into an inline `subnet` block:**
 
-  I tried to reference my app subnet by index, but `subnet` inside `azurerm_virtual_network` is a set, not a list — sets have no order, so there's no "first" item.
+  I tried to reference my app subnet by index, but `subnet` inside `azurerm_virtual_network` is a set, not a list. Sets have no order, so there’s no “first” item.
 
   ```hcl
   resource "azurerm_virtual_network" "vnet" {
@@ -121,7 +124,7 @@ While implementing the region validation rule, I ran into two mistakes that caus
   }
   ```
 
-  To fix this, I was switching from inline `subnet { }` blocks to standalone `azurerm_subnet` resources, so each subnet can be referenced directly by name instead of by position:
+  To fix this, I switched from inline `subnet { }` blocks to standalone `azurerm_subnet` resources, This way, each subnet can be referenced directly by name instead of by position:
 
   ```hcl
   resource "azurerm_subnet" "app" {
@@ -159,7 +162,7 @@ While implementing the region validation rule, I ran into two mistakes that caus
 
 - **Indexing into a nested block output:**
 
-  I tried to grab a specific field from `source_image_reference` using `[0]`, but it's a single nested block, not a list — so it can't be indexed.
+  I tried to grab a specific field from `source_image_reference` using `[0]`, but it's a single nested block, not a list, so it can't be indexed.
 
   ```hcl
   output "vmss" {
@@ -183,7 +186,7 @@ While implementing the region validation rule, I ran into two mistakes that caus
 
 - **Indexing into a set attribute:**
 
-  Now for this one, I tried to grab the VNet's address space with `[0]`, but `address_space` is a set, not a list — sets have no order, so indexing isn't allowed.
+  Now for this one, I tried to grab the VNet's address space with `[0]`, but `address_space` is a set, not a list. Sets have no order, so indexing isn't allowed.
 
   ```hcl
   resource "azurerm_virtual_network" "vnet" {
@@ -200,7 +203,7 @@ While implementing the region validation rule, I ran into two mistakes that caus
   }
   ```
 
-  The fix was converting the set to a list first with `tolist()`, then indexing it:
+  The fix was converting the set to a list first with `tolist()`, and then indexing it:
 
   ```hcl
   output "vnet_name" {

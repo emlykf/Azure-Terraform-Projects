@@ -2,7 +2,7 @@ output "rg_name" {
   value = azurerm_resource_group.rg.name
 }
 
-output "vnet_name" {
+output "vnet" {
   value = {
     name          = azurerm_virtual_network.vnet.name
     address_space = tolist(azurerm_virtual_network.vnet.address_space)[0]
@@ -32,6 +32,28 @@ output "autoscale" {
   }
 }
 
-output "load_balancer_public_ip" {
-  value = azurerm_public_ip.publicIP.ip_address
+output "loadbalancer" {
+  value = {
+    name = azurerm_lb.loadbalancer.name
+    public_ip_address = azurerm_public_ip.lb_publicIP.ip_address    # you'll know the ip_address later after it's created
+  }
+}
+
+output "nsg_name" {
+  value = azurerm_network_security_group.nsg.name
+}
+
+output "nat_gateway" {
+  value = {
+    name = azurerm_nat_gateway.nat_gateway.name
+    public_ip_address = azurerm_public_ip.nat_gateway_ip.ip_address   # you'll know the ip_address later after it's created
+  }
+}
+
+output "environment" {
+  value = var.environment
+}
+
+output "instance_count" {
+  value = var.instance_count
 }
