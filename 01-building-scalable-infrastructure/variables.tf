@@ -30,3 +30,15 @@ variable "environment" {
     error_message = "The environment must be one of the following: dev, test, prod"
   }
 }
+
+variable "instance_count" {
+  description = "Number of VMSS instances"
+  type        = number
+  default     = 2
+}
+
+variable "vnet_address_space" {
+  description = "Address space for the virtual network"
+  type        = list(string)
+  default     = ["10.0.0.0/16"]
+}

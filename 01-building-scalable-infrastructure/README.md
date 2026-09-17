@@ -210,8 +210,8 @@ While implementing the region validation rule, I ran into two mistakes that caus
     }
   }
   ```
-
-  > **Note:** `address_prefixes` (subnet) and `address_space` (VNet) look like they should behave the same way, but they don't — `address_prefixes` is a `list(string)` (indexable), while `address_space` is a `set(string)` (not indexable).
+  
+  > Note: `address_prefixes` (subnet) and `address_space` (VNet) look like they should behave the same way, but they don't — `address_prefixes` is a `list(string)` (indexable), while `address_space` is a `set(string)` (not indexable).
 
   ```hcl
   output "subnets" {

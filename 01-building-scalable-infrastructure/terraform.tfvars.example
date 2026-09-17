@@ -1,0 +1,8 @@
+# terraform.tfvars.example — a template showing what values terraform.tfvars needs.
+# It's committed to the repo (unlike the real .tfvars, which stays gitignored), so anyone cloning knows what to fill in without exposing actual deployment values
+
+environment         = "test"                  # e.g. dev, test, or prod
+location            = "westeurope"
+resource_naming     = "myproject01-westeu"    # example of name you can give
+instance_count      = 3
+vnet_address_space  = ["10.0.0.0/16"]

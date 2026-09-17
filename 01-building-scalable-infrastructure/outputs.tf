@@ -31,3 +31,7 @@ output "autoscale" {
     capacity = azurerm_monitor_autoscale_setting.autoscale.profile[0].capacity  # Block type "profile" is represented by a list of objects, so it must be indexed using a numeric key, like .profile[0]
   }
 }
+
+output "load_balancer_public_ip" {
+  value = azurerm_public_ip.publicIP.ip_address
+}

@@ -3,8 +3,9 @@ resource "azurerm_linux_virtual_machine_scale_set" "vmss" {
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   sku                 = lookup(local.vm_sizes, var.environment)   # here we use the lookup function to get the VM size based on the environment variable
-  instances           = 2
+  instances           = var.instance_count
   admin_username      = "adminuser"
+  custom_data         = filebase64("${path.module}/user-data.sh")
 
   admin_ssh_key {
     username   = "adminuser"
@@ -19,7 +20,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "vmss" {
       name      = "ipconfig"
       primary   = true
       subnet_id = azurerm_subnet.app.id
-      load_balancer_backend_address_pool_ids = [azurerm_lb_backend_address_pool.lb_backend_pool.id]  # This is how we associate the VMSS instances with the backend pool of the load balancer
+      load_balancer_backend_address_pool_ids = [azurerm_lb_backend_address_pool.lb_backend_pool.id]  # This is how we connect the VMSS instances with the backend pool of the load balancer
       
       /* It needs [ ] because the field expects a list of IDs, not a single ID — even when you're only giving it one.
       azurerm_lb_backend_address_pool.lb_backend_pool.id on its own is just one string. But load_balancer_backend_address_pool_ids (plural, "ids") is typed as list(string) in the schema —
