@@ -6,7 +6,7 @@ resource "azurerm_monitor_autoscale_setting" "autoscale" {
   target_resource_id  = azurerm_linux_virtual_machine_scale_set.vmss.id
 
   profile {
-    name = "autoscale"
+    name = "autoscale"      # the name configuration section inside the autoscale setting
 
     capacity {
       default = 2
@@ -18,9 +18,9 @@ resource "azurerm_monitor_autoscale_setting" "autoscale" {
       metric_trigger {
         metric_name        = "Percentage CPU"
         metric_resource_id = azurerm_linux_virtual_machine_scale_set.vmss.id
-        time_grain         = "PT2M"             # How often Azure collects the raw metric data
+        time_grain         = "PT1M"             # how often Azure checks CPU — every 1 min 
         statistic          = "Average"        
-        time_window        = "PT5M"             # This means that the average CPU usage is calculated over a 5-minute window 
+        time_window        = "PT5M"             # looks at the last 5 min of CPU usage   
         time_aggregation   = "Average"
         operator           = "GreaterThan"
         threshold          = 80
@@ -29,16 +29,16 @@ resource "azurerm_monitor_autoscale_setting" "autoscale" {
       scale_action {
         direction = "Increase"
         type      = "ChangeCount"
-        value     = "1"       # This means add one instance to the scale set when the CPU usage exceeds 80% for 5 minutes
-        cooldown  = "PT1M"
-      }
+        value     = "1"           # add one instance to the scale set when the CPU usage exceeds 80% for 5 minutes
+        cooldown  = "PT2M"        # wait 2 min before scaling again
+      } 
     }
 
     rule {
       metric_trigger {
         metric_name        = "Percentage CPU"
         metric_resource_id = azurerm_linux_virtual_machine_scale_set.vmss.id
-        time_grain         = "PT2M"
+        time_grain         = "PT1M"
         statistic          = "Average"
         time_window        = "PT5M"
         time_aggregation   = "Average"
@@ -50,15 +50,14 @@ resource "azurerm_monitor_autoscale_setting" "autoscale" {
         direction = "Decrease"
         type      = "ChangeCount"
         value     = "1"
-        cooldown  = "PT1M"
+        cooldown  = "PT2M"
       }
     }
   }
 
   notification {
     email {
-      send_to_subscription_administrator    = true
-      custom_emails                         = ["admin@contoso.com"]
+      custom_emails                         = ["keishamanapa5@gmail.com"]
     }
   }
 }

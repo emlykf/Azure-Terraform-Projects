@@ -71,7 +71,7 @@ While implementing the region validation rule, I ran into two mistakes that caus
   }
   ```
 
-  There were two problems here. First, the `condition` checked `allowed_regions` against a copy of itself, so it could never actually fail. It wasn’t validating a selected region at all. Second, the `error_message` tried to drop `var.allowed_regions` (a `list(string)`) directly into a string, which Terraform can’t handle because string interpolation only accepts a single string value.
+  There were two problems here. First, the `condition` checked `allowed_regions` against a copy of itself, so it could never actually fail. It wasn’t validating a selected region at all. Second, the `error_message` tried to drop `var.allowed_regions` (a `list(string)`) directly into a string, which Terraform can’t handle because plugging a value into a string (Interpolation) only works with a single string, not a list.
 
   The fix was to separate "the list of allowed regions" from "the selected region" by introducing a new `location` variable. I also used `join()` to turn the list into a proper string for the error message:
 

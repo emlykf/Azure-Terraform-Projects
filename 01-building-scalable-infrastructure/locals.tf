@@ -3,15 +3,15 @@ locals {
     environment = var.environment
   }
 
-  # Define the VM sizes for each environment
+  # --- Define the VM sizes for each environment ---
   vm_sizes = {
       dev   = "Standard_B1s"
-      test  = "Standard_B2s"
-      prod  = "Standard_B2ms"
+      test  = "Standard_D2s_v4"
+      prod  = "Standard_D8s_v4"
     }
   
-  # Define the rules as a map
-  # We created lb_rule so NSG can reference it. The NSG needs to know which ports to allow traffic on, and the load balancer rule defines those ports (frontend_port and backend_port)
+  # --- Define the rules as a map ---
+  # we created lb_rule so NSG can reference it. The NSG needs to know which ports to allow traffic on, and the load balancer rule defines those ports (frontend_port and backend_port)
   lb_rules = {
     http = {
       frontend_port          = 80

@@ -46,7 +46,7 @@ output "nsg_name" {
 output "nat_gateway" {
   value = {
     name = azurerm_nat_gateway.nat_gateway.name
-    public_ip_address = azurerm_public_ip.nat_gateway_ip.ip_address   # you'll know the ip_address later after it's created
+    public_ip_address = azurerm_public_ip.nat_gateway_pip.ip_address   # you'll know the ip_address later after it's created
   }
 }
 

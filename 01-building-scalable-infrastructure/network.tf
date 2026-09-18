@@ -9,7 +9,7 @@ resource "azurerm_virtual_network" "vnet" {
   }
 }
 
-# Application subnet for the VMSS instances
+# --- Application subnet for the VMSS instances ---
 resource "azurerm_subnet" "app" {
   name                 = "snet-app-${var.resource_naming}"
   resource_group_name  = azurerm_resource_group.rg.name
@@ -17,7 +17,7 @@ resource "azurerm_subnet" "app" {
   address_prefixes     = ["10.0.1.0/24"]
 }
 
-# Management subnet for the future use
+# --- Management subnet for the future use ---
 resource "azurerm_subnet" "mgmt" {
   name                 = "snet-mgmt-${var.resource_naming}"
   resource_group_name  = azurerm_resource_group.rg.name

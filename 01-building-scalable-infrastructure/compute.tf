@@ -2,14 +2,14 @@ resource "azurerm_linux_virtual_machine_scale_set" "vmss" {
   name                = "vmss-${var.resource_naming}"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
-  sku                 = lookup(local.vm_sizes, var.environment)   # here we use the lookup function to get the VM size based on the environment variable
+  sku                 = lookup(local.vm_sizes, var.environment)       # here we use the lookup function to get the VM size based on the environment variable
   instances           = var.instance_count
   admin_username      = "adminuser"
-  custom_data         = filebase64("${path.module}/user-data.sh")
+  custom_data         = filebase64("${path.module}/user-data.sh")     # boot script — installs Apache/PHP + Terramino on each VM
 
   admin_ssh_key {
     username   = "adminuser"
-    public_key = file("~/.ssh/id_rsa.pub")  # I generated a new SSH key pair for this project 
+    public_key = file("~/.ssh/id_rsa.pub")      # lets you SSH in with your own keypair
   }
 
   network_interface {
@@ -41,6 +41,6 @@ resource "azurerm_linux_virtual_machine_scale_set" "vmss" {
   }
 
     lifecycle {
-      ignore_changes = [instances]
+      ignore_changes = [instances]      # so terraform won't override the instance count autoscale sets
     }
 }
