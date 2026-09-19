@@ -13,7 +13,7 @@ In this project, I will demonstrate a scalable Azure cloud infrastructure using 
 - HTTPS: self-signed cert generated via Terraform's `tls` provider, served on port 443
 
 ## Architecture Diagram
-![Architecture Diagram](architecture-diagram.png.png)
+![Architecture Diagram](architecture-diagram.png)
 
 ## Challenges & How I Resolved Them
 
