@@ -5,8 +5,8 @@ locals {
 
   # --- Define the VM sizes for each environment ---
   vm_sizes = {
-      dev   = "Standard_B1s"
-      test  = "Standard_D2s_v4"
+      dev   = "Standard_D2s_v4"
+      test  = "Standard_D4s_v4"
       prod  = "Standard_D8s_v4"
     }
   
@@ -17,13 +17,13 @@ locals {
       frontend_port          = 80
       backend_port           = 80
       protocol               = "Tcp"
-      priority               = 110
+      priority               = 100
     }
     https = {
       frontend_port          = 443
       backend_port           = 443
       protocol               = "Tcp"
-      priority               = 100
+      priority               = 110
     }
   }
 

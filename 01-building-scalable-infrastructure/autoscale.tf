@@ -57,7 +57,7 @@ resource "azurerm_monitor_autoscale_setting" "autoscale" {
 
   notification {
     email {
-      custom_emails                         = ["keishamanapa5@gmail.com"]
+      custom_emails                         = ["admin@poppy-gmbh.com"]
     }
   }
 }

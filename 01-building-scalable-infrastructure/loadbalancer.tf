@@ -5,8 +5,7 @@
     location            = azurerm_resource_group.rg.location
     resource_group_name = azurerm_resource_group.rg.name
     allocation_method   = "Static"
-    sku                 = "Standard"      # standard SKU requires allocation_method = "Static"
-    domain_name_label   = "poppy-gmbh"    # must be globally unique across all of Azure
+    sku                 = "Standard"          # standard SKU requires allocation_method = "Static"
   }
 
   resource "azurerm_lb" "loadbalancer" {

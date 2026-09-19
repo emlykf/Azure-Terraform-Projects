@@ -3,20 +3,20 @@ resource "azurerm_network_security_group" "nsg" {
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
 
-  # --- Allows inbound traffic from the load balancer to the VMSS instances on the backend_port ---
+  # --- Allows inbound internet traffic to reach the VMSS instances via the load balancer ---
   # dynamic block => dynamic "rule_name"
   dynamic "security_rule" {
     for_each = local.lb_rules
     
     content {
-      name                       = "Allow-${security_rule.key}-from-LB"
+      name                       = "Allow-${security_rule.key}"
       priority                   = security_rule.value.priority         # evaluation order; lower number = checked first
       direction                  = "Inbound"
       access                     = "Allow"
       protocol                   = security_rule.value.protocol
       source_port_range          = "*"                                  # sender's port; "*" = any (LB uses ephemeral ports)                                         
       destination_port_range     = security_rule.value.backend_port     # which port on VMSS this opens (e.g. 80, 443)
-      source_address_prefix      = "Internet"                           # the LB is sending traffic from the internet
+      source_address_prefix      = "Internet"                           # allow traffics from Internet through the load balancer
       destination_address_prefix = "*"                                  # any VM in the subnet 
     }
   }

@@ -7,11 +7,13 @@ In this project, I will demonstrate a scalable Azure cloud infrastructure using 
 - VMSS: running Ubuntu 22.04, auto-scales based on CPU load
 - VM size: picked automatically depending on environment (dev/test/prod)
 - Load Balancer: spreads traffic across instances, only sends it to healthy ones
-- NSG: only lets the load balancer talk to the VMs — everything else is blocked
+- NSG: only lets the load balancer talk to the VMs, everything else is blocked
 - NAT Gateway: gives the VMs internet access without exposing them publicly
 - Each VM runs a fun demo app (Terramino) so you can actually see if the load balancer is working
+- HTTPS: self-signed cert generated via Terraform's `tls` provider, served on port 443
 
 ## Architecture Diagram
+![Architecture Diagram](architecture-diagram.png.png)
 
 ## Challenges & How I Resolved Them
 
@@ -224,3 +226,68 @@ While implementing the region validation rule, I ran into two mistakes that caus
     }
   }
   ```
+
+### 3. Clients couldn't reach Terramino app
+
+I've double-checked that everything was deployed correctly. The resource group, NSG, load balancer rules, and backend pool all looked good in the Portal, and the health probes showed all instances as healthy. The infrastructure looked completely fine, but visiting the site still failed. Turns out, my NSG was only allowing the health probe, not traffic from the Internet:
+
+  I set my NSG to only allow traffic from `AzureLoadBalancer`, assuming that would let everything passing through the load balancer. But it turns out this only allows the health probe, not internet traffic. Clients hit the VM with their own IP addresses, so their requests weren’t allowed through and got blocked by the default deny rule. 
+  
+```hcl
+source_address_prefix = "AzureLoadBalancer"   
+```
+
+  I fixed this by switching to `"Internet"`:
+
+```hcl
+ source_address_prefix = "Internet"  
+```
+
+### 4. Mixing up the Azure DNS label with my own domain
+
+At first I set `domain_name_label` to my actual domain (`poppy-gmbh.site`) from GoDaddy, but it failed. 
+
+```hcl
+resource "azurerm_public_ip" "lb_publicIP" {
+  name                = "pip-lb-${var.resource_naming}"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+  domain_name_label = "poppy-gmbh.site"   
+}
+```
+> Note: This field only accepts letters, numbers, hyphens, dots are not allowed. It's specifically built for Azure's own free DNS name (`<label>.<region>.cloudapp.azure.com`), so not a real domain.
+
+  Since I'm routing my own domain to the public IP directly through an A record in GoDaddy, I didn't actually need Azure's built-in DNS name at all, so the fix was just removing `domain_name_label` entirely:
+
+```hcl
+resource "azurerm_public_ip" "lb_publicIP" {
+  name                = "pip-lb-${var.resource_naming}"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+}
+```
+
+### 5. Terramino wasn't loading by default
+
+Even after fixing DNS and the NSG, visiting `poppy-gmbh.site` directly showed raw instance metadata instead of the Terramino game. Clients had to manually add `/index.php` to see it. This is happening because Apache's default `DirectoryIndex` checks for `index.html` before `index.php`. Since `user-data.sh` creates both files in the web root, Apache was always serving the metadata dump first.
+
+```
+both files exist in /var/www/html:
+- index.html  <- served first by default
+- index.php   <- the actual Terramino game
+```
+
+The fix was simple, just telling Apache to prioritize `index.php` over `index.html` by adding a new `DirectoryIndex` directive to the Apache config:
+
+```bash
+echo "DirectoryIndex index.php index.html" | sudo tee /etc/apache2/mods-enabled/dir.conf
+```
+
+## Demo
+
+![Terramino instance 0](terramino-instance-0.png)
+![Terramino instance 1](terramino-instance-1.png)

@@ -34,8 +34,9 @@ output "autoscale" {
 
 output "loadbalancer" {
   value = {
-    name = azurerm_lb.loadbalancer.name
+    name              = azurerm_lb.loadbalancer.name
     public_ip_address = azurerm_public_ip.lb_publicIP.ip_address    # you'll know the ip_address later after it's created
+    #dns_name          = azurerm_public_ip.lb_publicIP.fqdn          # fqdn is the fully qualified domain name (e.g., DNS name plus the Azure region and azure.com)
   }
 }
 
@@ -45,7 +46,7 @@ output "nsg_name" {
 
 output "nat_gateway" {
   value = {
-    name = azurerm_nat_gateway.nat_gateway.name
+    name              = azurerm_nat_gateway.nat_gateway.name
     public_ip_address = azurerm_public_ip.nat_gateway_pip.ip_address   # you'll know the ip_address later after it's created
   }
 }
