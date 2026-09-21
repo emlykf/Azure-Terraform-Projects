@@ -37,9 +37,9 @@ While implementing the region validation rule, I ran into two mistakes that caus
   }
   ```
 
-  While fixing this, I also found two smaller mistakes in the same code. I realized that `list()` isn’t a valid type on its own. Terraform needs to know what’s inside the list, so it should be `list(string)`. Azure expects `"westeurope"` (lowercase, no spaces). 
+  While fixing this, I also found two smaller mistakes in the same code. I realized that `list()` isn’t a valid type on its own. Terraform needs to know what’s inside the list, so it should be `list(string)`. The other issue was that Azure expects `"westeurope"` (lowercase, no spaces). 
 
-  So the fix was adding a dedicated `location` variable that names the region directly instead of indexing into the list, plus correcting the type and the region name:
+  So the fix was adding a dedicated `location` variable that names the selected region directly instead of indexing into the list, plus correcting the type and the region name:
 
   ```hcl
   resource "azurerm_resource_group" "rg" {
@@ -98,7 +98,7 @@ While implementing the region validation rule, I ran into two mistakes that caus
 
 - **Indexing into an inline `subnet` block:**
 
-  I tried to reference my app subnet by index, but `subnet` inside `azurerm_virtual_network` is a set, not a list. Sets have no order, so there’s no “first” item.
+  I tried to reference my app subnet by index, but `subnet` inside `azurerm_virtual_network` is a **set**, not a **list**. Sets have no order, so there’s no “first” item.
 
   ```hcl
   resource "azurerm_virtual_network" "vnet" {
@@ -150,7 +150,7 @@ While implementing the region validation rule, I ran into two mistakes that caus
 
 - **Missing SSH key for VMSS admin access:**
 
-  `admin_ssh_key` needs a public key to install on the VM instances, but I didn't have an SSH key pair generated yet. The fix was generating a new SSH key pair, then pointing `file()` at the public key:
+  `admin_ssh_key` needs a public key to install on the VM instances, but I didn't have an SSH key pair generated yet. The fix was generating a new SSH key pair:
 
   ```bash
   ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa
@@ -162,10 +162,20 @@ While implementing the region validation rule, I ran into two mistakes that caus
   public_key = file("~/.ssh/id_rsa.pub")
   ```
 
+  > `file()` is a Terraform function that reads a file's contents from your computer and returns it as a string, so you can use that content directly in your configuration.
+
 - **Indexing into a nested block output:**
 
   I tried to grab a specific field from `source_image_reference` using `[0]`, but it's a single nested block, not a list, so it can't be indexed.
 
+  ```hcl
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-jammy"
+    sku       = "22_04-lts"
+    version   = "latest"
+  }
+  ```
   ```hcl
   output "vmss" {
     value = [
@@ -231,7 +241,7 @@ While implementing the region validation rule, I ran into two mistakes that caus
 
 I've double-checked that everything was deployed correctly. The resource group, NSG, load balancer rules, and backend pool all looked good in the Portal, and the health probes showed all instances as healthy. The infrastructure looked completely fine, but visiting the site still failed. Turns out, my NSG was only allowing the health probe, not traffic from the Internet:
 
-  I set my NSG to only allow traffic from `AzureLoadBalancer`, assuming that would let everything passing through the load balancer. But it turns out this only allows the health probe, not internet traffic. Clients hit the VM with their own IP addresses, so their requests weren’t allowed through and got blocked by the default deny rule. 
+  I set my NSG to only allow traffic from `"AzureLoadBalancer"`, assuming that would let everything passing through the load balancer. But it turns out this only allows the health probe, not internet traffic. Clients hit the VM with their own IP addresses, so their requests weren’t allowed through and got blocked by the default deny rule: 
   
 ```hcl
 source_address_prefix = "AzureLoadBalancer"   
@@ -254,7 +264,7 @@ resource "azurerm_public_ip" "lb_publicIP" {
   resource_group_name = azurerm_resource_group.rg.name
   allocation_method   = "Static"
   sku                 = "Standard"
-  domain_name_label = "poppy-gmbh.site"   
+  domain_name_label   = "poppy-gmbh.site"   
 }
 ```
 > Note: This field only accepts letters, numbers, hyphens, dots are not allowed. It's specifically built for Azure's own free DNS name (`<label>.<region>.cloudapp.azure.com`), so not a real domain.
@@ -273,7 +283,7 @@ resource "azurerm_public_ip" "lb_publicIP" {
 
 ### 5. Terramino wasn't loading by default
 
-Even after fixing DNS and the NSG, visiting `poppy-gmbh.site` directly showed raw instance metadata instead of the Terramino game. Clients had to manually add `/index.php` to see it. This is happening because Apache's default `DirectoryIndex` checks for `index.html` before `index.php`. Since `user-data.sh` creates both files in the web root, Apache was always serving the metadata dump first.
+Even after fixing DNS and the NSG, visiting `poppy-gmbh.site` will only show raw instance metadata instead of the Terramino game. Clients had to manually add `/index.php` to see it. This is happening because Apache's default `DirectoryIndex` checks for `index.html` before `index.php`. Since `user-data.sh` creates both files in the web root, Apache was always serving the metadata dump first.
 
 ```
 both files exist in /var/www/html:
@@ -281,11 +291,24 @@ both files exist in /var/www/html:
 - index.php   <- the actual Terramino game
 ```
 
+- `/var/www/html` — is a folder path on the VM, the actual physical location where your website's files live.
+- `DirectoryIndex` — it doesn't live "inside" a folder. It's an Apache configuration setting; a rule that tells Apache: "when someone visits a folder (like your website's root /) without specifying an exact filename, which file should you show them by default?". 
+
 The fix was simple, just telling Apache to prioritize `index.php` over `index.html` by adding a new `DirectoryIndex` directive to the Apache config:
 
 ```bash
+#!/bin/bash
+apt-get update -y
+apt-get install -y apache2 php php-curl libapache2-mod-php php-mysql jq
+
+# --- Make Apache serve index.php before index.html at the root URL ---
 echo "DirectoryIndex index.php index.html" | sudo tee /etc/apache2/mods-enabled/dir.conf
 ```
+
+Breaking it into pieces:
+- `echo` "DirectoryIndex index.php index.html" — creates the text you want to write: the instruction "check for index.php first, then index.html."
+- `|` — a pipe, meaning "take the output of the left side and feed it into the right side."
+- `sudo tee /etc/apache2/mods-enabled/dir.conf` — `tee` writes that text into the file dir.conf (this is the actual Apache config file that holds the DirectoryIndex rule). `sudo` is needed because this file requires admin/root permission to edit. `tee` is used instead of a simple `>` redirect because sudo alone doesn't apply to redirects properly in bash. `tee` lets sudo apply to the writing action itself.
 
 ## Demo
 

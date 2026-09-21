@@ -10,9 +10,10 @@ resource "azurerm_linux_virtual_machine_scale_set" "vmss" {
     private_key_pem  = tls_private_key.private_key.private_key_pem
   }))
 
+  # admin_ssh_key installs this public key on each VM, so it can be used to log in via SSH
   admin_ssh_key {
     username   = "adminuser"
-    public_key = file("~/.ssh/id_rsa.pub")      # lets you SSH in with your own keypair
+    public_key = file("~/.ssh/id_rsa.pub")      # this is what gets installed so the server knows your private key is allowed to log in
   }
 
   network_interface {
@@ -31,19 +32,19 @@ resource "azurerm_linux_virtual_machine_scale_set" "vmss" {
     }
   }
 
-    os_disk {
+  os_disk {
     storage_account_type = "Standard_LRS"
     caching              = "ReadWrite"
   }
 
-    source_image_reference {
+  source_image_reference {
     publisher = "Canonical"
     offer     = "0001-com-ubuntu-server-jammy"
     sku       = "22_04-lts"
     version   = "latest"
   }
 
-    lifecycle {
-      ignore_changes = [instances]      # so terraform won't override the instance count autoscale sets
-    }
+  lifecycle {
+    ignore_changes = [instances]      # so terraform won't override the instance count autoscale sets
+  }
 }
