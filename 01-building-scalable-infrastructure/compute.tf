@@ -13,7 +13,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "vmss" {
   # admin_ssh_key installs this public key on each VM, so it can be used to log in via SSH
   admin_ssh_key {
     username   = "adminuser"
-    public_key = file("~/.ssh/id_rsa.pub")      # this is what gets installed so the server knows your private key is allowed to log in
+    public_key = file("~/.ssh/id_rsa.pub")      # id_rsa.pub is what gets installed so the server knows your private key is allowed to log in
   }
 
   network_interface {

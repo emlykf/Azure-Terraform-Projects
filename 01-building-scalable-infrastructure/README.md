@@ -126,6 +126,8 @@ While implementing the region validation rule, I ran into two mistakes that caus
   }
   ```
 
+  > In the `azurerm_virtual_network resource`, the subnet argument is an inline repeatable block, and the AzureRM provider defines that block's type internally as a `TypeSet` rather than a `TypeList`. Set is unorrdered, so it protect you from accidental full replacement just because you moved a block around.
+
   To fix this, I switched from inline `subnet { }` blocks to standalone `azurerm_subnet` resources, This way, each subnet can be referenced directly by name instead of by position:
 
   ```hcl
@@ -309,6 +311,38 @@ Breaking it into pieces:
 - `echo` "DirectoryIndex index.php index.html" — creates the text you want to write: the instruction "check for index.php first, then index.html."
 - `|` — a pipe, meaning "take the output of the left side and feed it into the right side."
 - `sudo tee /etc/apache2/mods-enabled/dir.conf` — `tee` writes that text into the file dir.conf (this is the actual Apache config file that holds the DirectoryIndex rule). `sudo` is needed because this file requires admin/root permission to edit. `tee` is used instead of a simple `>` redirect because sudo alone doesn't apply to redirects properly in bash. `tee` lets sudo apply to the writing action itself.
+
+### 6. Health probe marked instances unhealthy after adding HTTPS
+
+After setting up HTTPS with a self-signed cert (via Terraform's `tls` provider) and configuring Apache to redirect all HTTP traffic to HTTPS, my health probe was still checking the old HTTP endpoint:
+
+```hcl
+resource "azurerm_lb_probe" "lb_probe" {
+  loadbalancer_id = azurerm_lb.loadbalancer.id
+  name            = "health-probe"
+  protocol        = "Http"
+  port            = 80
+  request_path    = "/health"
+}
+```
+
+Since every request to port 80 now gets redirected (`301`/`302`) to HTTPS, the probe never received the `200 OK` it was expecting from `/health`. Azure Load Balancer doesn't follow redirects, so it treats any non-`200` response as unhealthy, meaning my instances could silently start failing health checks even though the app itself was working fine.
+
+The load balancer rule for port 80 (`fe:80 -> be:80`) still needs to exist, since it's what lets the initial HTTP request reach Apache in order to be redirected in the first place. The issue was isolated entirely to the probe, which is a separate resource from the LB rules and just happens to be referenced by both of them via `probe_id`.
+
+The fix was pointing the probe at the HTTPS endpoint instead:
+
+```hcl
+resource "azurerm_lb_probe" "lb_probe" {
+  loadbalancer_id = azurerm_lb.loadbalancer.id
+  name            = "health-probe"
+  protocol        = "Https"
+  port            = 443
+  request_path    = "/health"
+}
+```
+
+> Note: Azure LB health probes complete a TLS handshake but don't validate the certificate chain — no hostname check, no CA trust verification. So a self-signed cert doesn't cause the probe to fail, even though a browser would normally flag it as untrusted.
 
 ## Demo
 
