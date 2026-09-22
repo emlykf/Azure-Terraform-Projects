@@ -36,7 +36,6 @@ output "loadbalancer" {
   value = {
     name              = azurerm_lb.loadbalancer.name
     public_ip_address = azurerm_public_ip.lb_publicIP.ip_address    # you'll know the ip_address later after it's created
-    #dns_name          = azurerm_public_ip.lb_publicIP.fqdn          # fqdn is the fully qualified domain name (e.g., DNS name plus the Azure region and azure.com)
   }
 }
 

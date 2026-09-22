@@ -5,9 +5,9 @@ resource "azurerm_linux_virtual_machine_scale_set" "vmss" {
   sku                 = lookup(local.vm_sizes, var.environment)       # here we use the lookup function to get the VM size based on the environment variable
   instances           = var.instance_count
   admin_username      = "adminuser"
-  custom_data = base64encode(templatefile("${path.module}/user-data.sh", {    # boot script — installs Apache/PHP + Terramino + HTTPS cert on each VM
-    cert_pem         = tls_self_signed_cert.ssl_cert.cert_pem
-    private_key_pem  = tls_private_key.private_key.private_key_pem
+  custom_data = base64encode(templatefile("${path.module}/user-data.sh", {    # boot script — installs Apache/PHP + Terramino + HTTPS cert on each VM instance
+    cert_pem         = tls_self_signed_cert.ssl_cert.cert_pem                 # this is the public certificate that the server will present to clients during the TLS handshake ("here is my public key, I claimed to be poppy-gmbh.site")
+    private_key_pem  = tls_private_key.private_key.private_key_pem            # it's used to decrypt traffic and to prove the server's identity during the TLS handshake
   }))
 
   # admin_ssh_key installs this public key on each VM, so it can be used to log in via SSH

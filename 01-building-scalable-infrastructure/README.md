@@ -200,12 +200,18 @@ While implementing the region validation rule, I ran into two mistakes that caus
 
 - **Indexing into a set attribute:**
 
-  Now for this one, I tried to grab the VNet's address space with `[0]`, but `address_space` is a set, not a list. Sets have no order, so indexing isn't allowed.
+  Now for this one, I tried to grab the VNet's address space with `[0]`, but `address_space` is a set, not a list. Sets have no order, so indexing isn't allowed. Even though you input a `list(string)` value into `address_space`, the provider's schema for that attribute internally treats/stores it as a `set(string)`.
 
   ```hcl
   resource "azurerm_virtual_network" "vnet" {
     name                = "vnet-${var.resource_naming}"
-    address_space       = ["10.0.0.0/16"]
+    address_space       = var.vnet_address_space
+  }
+
+  variable "vnet_address_space" {
+    description = "Address space for the virtual network"
+    type        = list(string)
+    default     = ["10.0.0.0/16"]
   }
   ```
   ```hcl
