@@ -5,6 +5,11 @@ This repository contains a collection of Azure labs and automation projects buil
 > [!NOTE]
 > These labs will also contain what challenges I faced and how I resolved them.
 
+## Projects 
+
+- [**01-building-scalable-infrastructure**](01-building-scalable-infrastructure): Scalable web infrastructure on Azure with a VM scale set, load balancer, autoscaling, NAT Gateway and HTTPS.
+- [**02-azure-terraform-gitlab-cicd**](02-azure-terraform-gitlab-cicd): Secure Terraform deployment through a GitLab CI/CD pipeline, with OIDC login, least-privilege access, a Trivy scan and manual approval.
+
 ## Prerequisites
 
 Before you begin, you will need an [Azure subscription](https://azure.microsoft.com/en-us/pricing/purchase-options/azure-account?hasfullconsent=true) with Owner permissions and a [GitHub account](https://github.com/signup).
