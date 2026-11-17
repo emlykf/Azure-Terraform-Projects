@@ -1,0 +1,2 @@
+# keeps Git on Windows from adding CRLF line endings, which would break the script when it runs on Linux.
+*.sh text eol=lf

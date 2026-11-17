@@ -1,0 +1,86 @@
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH != "main" && $CI_PIPELINE_SOURCE != "merge_request_event"
+      when: never
+    - when: always
+
+stages:
+  - validate
+  - security            # Trivy scan before plan
+  - plan
+  - apply
+  - destroy             # manual destroy
+
+default:
+  image:
+    name: hashicorp/terraform:1.17.2      # pinned instead of :latest
+    entrypoint: [""]                      # simpler override of the image's entrypoint
+  before_script:
+    - cd terraform                        # init moved into the jobs (MR jobs have no Azure access)
+  cache:
+    key: $CI_COMMIT_REF_SLUG
+    paths:
+      - terraform/.terraform/
+
+# Shared setup for every job that talks to Azure (main branch only)
+.azure_oidc:
+  id_tokens:
+    ARM_OIDC_TOKEN:                       # GitLab creates a short-lived signed token for this job
+      aud: api://AzureADTokenExchange     # must match the audience in the federated credential
+  before_script:
+    - cd terraform
+    - terraform init -input=false         # connects to the remote state with the OIDC login
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+terraform_validate:
+  stage: validate
+  cache: []                                        # no cache, so old Azure settings from other jobs aren't loaded
+  script:
+    - terraform init -backend=false -input=false   # no Azure login needed
+    - terraform fmt -check -recursive              # fail on unformatted code
+    - terraform validate
+
+trivy_config_scan:                         # Security scan of the Terraform code
+  stage: security
+  image:
+    name: aquasec/trivy:0.72.0
+    entrypoint: [""]
+  before_script: []
+  cache: []
+  script:
+    - trivy config --exit-code 1 --severity HIGH,CRITICAL --tf-vars terraform/terraform.tfvars terraform/
+
+terraform_plan:
+  stage: plan
+  extends: .azure_oidc                      # OIDC login instead of client secret
+  script:
+    - terraform plan -input=false -out=tfplan
+  artifacts:
+    name: "terraform-plan-$CI_COMMIT_REF_NAME"
+    paths:
+      - terraform/tfplan
+    expire_in: 1 week                       # don't keep old plans forever
+
+terraform_apply:
+  stage: apply
+  extends: .azure_oidc
+  needs: [terraform_plan]                   # needs instead of dependencies
+  resource_group: terraform-state           # never two applies/destroys at the same time
+  script:
+    - terraform apply -input=false tfplan   # saved plan applies without --auto-approve
+  rules:                                    # rules instead of only
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+
+terraform_destroy:                          #manual destroy job
+  stage: destroy
+  extends: .azure_oidc
+  needs: []                                 # can be clicked anytime, without running apply first
+  resource_group: terraform-state
+  script:
+    - terraform destroy -input=false -auto-approve
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: true                   # pipeline shows "passed" without clicking destroy
